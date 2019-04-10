@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:box2d_flame/box2d.dart';
 import 'package:spritewidget/spritewidget.dart';
@@ -52,11 +53,12 @@ class Scene extends NodeWithSize {
   Scene(Size size) : super(size) {
     userInteractionEnabled = true;
     world = World.withGravity(Vector2(0.0, 9.8));
-    _addCircle(Offset(512, 512));
+    rand = Random();
     _addFloor();
   }
 
   World world;
+  Random rand;
 
   @override
   void update(double dt) {
@@ -65,32 +67,33 @@ class Scene extends NodeWithSize {
   }
 
   @override
-  handleEvent(SpriteBoxEvent event) {
+  bool handleEvent(SpriteBoxEvent event) {
     if (event.type == PointerDownEvent) {
-      Offset localPosition = convertPointToNodeSpace(event.boxPosition);
-      _addCircle(localPosition);
+      final Offset localPosition =
+          convertPointToNodeSpace(event.boxPosition).translate(0, 50);
+      _addShape(localPosition);
     }
     return true;
   }
 
-  void _addCircle(Offset position) {
+  void _addShape(Offset position) {
     final PhysicsNode node = PhysicsNode()
-      ..type = ShapeTypes.Circle
+      ..type = Shapes.types[rand.nextInt(Shapes.types.length - 1)]
       ..radius = 30
       ..position = position;
     addChild(node);
 
     final CircleShape shape = CircleShape();
-    shape.radius = 30;
+    shape.radius = node.radius * 0.95;
 
     final FixtureDef fixtureDef = FixtureDef();
     fixtureDef.friction = 0.5;
-    fixtureDef.restitution = 0.4;
-    fixtureDef.density = 1;
+    fixtureDef.restitution = 0.1;
+    fixtureDef.density = 10;
     fixtureDef.shape = shape;
 
     final BodyDef bodyDef = BodyDef();
-    bodyDef.linearVelocity = Vector2(0.0, 50.0);
+    bodyDef.linearVelocity = Vector2(0.0, 200.0);
     bodyDef.position = Vector2(node.position.dx, node.position.dy);
     bodyDef.type = BodyType.DYNAMIC;
     bodyDef.bullet = true;
@@ -103,7 +106,7 @@ class Scene extends NodeWithSize {
 
   void _addFloor() {
     final PhysicsNode node = PhysicsNode()
-      ..type = ShapeTypes.Rect
+      ..type = 'Rect'
       ..radius = 1024
       ..position = const Offset(512, 2000);
     addChild(node);
@@ -113,8 +116,8 @@ class Scene extends NodeWithSize {
 
     final FixtureDef fixtureDef = FixtureDef();
     fixtureDef.friction = 0.5;
-    fixtureDef.restitution = 0.4;
-    fixtureDef.density = 1;
+    fixtureDef.restitution = 0.2;
+    fixtureDef.density = 10;
     fixtureDef.shape = shape;
 
     final BodyDef bodyDef = BodyDef();
@@ -131,23 +134,33 @@ class Scene extends NodeWithSize {
 
 class PhysicsNode extends Node {
   Body body;
-  ShapeTypes type;
+  String type;
   double radius;
+  double angle = 0;
 
   @override
   void update(double dt) {
     super.update(dt);
     position = Offset(body.position.x, body.position.y);
+    angle = body.getAngle();
   }
 
   @override
   void paint(Canvas canvas) {
-    final Paint paint = Paint()
-      ..color = Colors.grey
-      ..style = PaintingStyle.fill
+    final Paint fill = Paint()
+      ..color = Colors.grey[300].withOpacity(0.7)
+      ..style = PaintingStyle.fill;
+    final Paint stroke = Paint()
+      ..color = Colors.grey[700]
+      ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
     const Offset center = Offset.zero;
-    Shapes(canvas: canvas, paint: paint, radius: radius, center: center)
-        .drawType(type);
+    final Shapes shapes =
+        Shapes(canvas: canvas, radius: radius, center: center, angle: angle);
+    for (Paint paint in <Paint>[fill, stroke]) {
+      shapes
+        ..paint = paint
+        ..draw(type);
+    }
   }
 }
